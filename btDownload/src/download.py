@@ -7,14 +7,15 @@ import sys
 import libtorrent as lt
 import time
 from time import sleep
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 
-def magnet2torrent(magnet, output_name=None):
-    if output_name and \
-            not pt.isdir(output_name) and \
-            not pt.isdir(pt.dirname(pt.abspath(output_name))):
-        print("Invalid output folder: " + pt.dirname(pt.abspath(output_name)))
-        print("")
-        sys.exit(0)
+download_pool = ThreadPoolExecutor(max_workers=50)
+default_movie_path = "../resource/movie/"
+default_bt_path = "../resource/torrent"
+
+def magnet2torrent(magnet):
+    bt_path = default_bt_path
     tempdir = tempfile.mkdtemp()
     ses = lt.session()
 
@@ -47,12 +48,12 @@ def magnet2torrent(magnet, output_name=None):
     torinfo = handle.get_torrent_info()
     torfile = lt.create_torrent(torinfo)
     output = pt.abspath(torinfo.name() + ".torrent")
-    if output_name:
-        if pt.isdir(output_name):
+    if bt_path:
+        if pt.isdir(bt_path):
             output = pt.abspath(pt.join(
-                output_name, torinfo.name() + ".torrent"))
-        elif pt.isdir(pt.dirname(pt.abspath(output_name))):
-            output = pt.abspath(output_name)
+                bt_path, torinfo.name() + ".torrent"))
+        elif pt.isdir(pt.dirname(pt.abspath(bt_path))):
+            output = pt.abspath(bt_path)
     print("Saving torrent file here : " + output + " ...")
     torcontent = lt.bencode(torfile.generate())
     f = open(output, "wb")
@@ -63,15 +64,16 @@ def magnet2torrent(magnet, output_name=None):
     shutil.rmtree(tempdir)
     return output
 
-def download_bt(file_path):
+def download_bt(bt_path, movie_path, task_id):
+    print "download"
 
     ses = lt.session()
     ses.listen_on(6881, 6891)
 
-    e = lt.bdecode(open(file_path, 'rb').read())
+    e = lt.bdecode(open(bt_path, 'rb').read())
     info = lt.torrent_info(e)
 
-    params = { 'save_path': '.', \
+    params = { 'save_path': movie_path, \
             'storage_mode': lt.storage_mode_t.storage_mode_sparse, \
             'ti': info }
     h = ses.add_torrent(params)
@@ -84,6 +86,7 @@ def download_bt(file_path):
                     'downloading', 'finished', 'seeding', 'allocating']
 
             # print s.state
+            print 'task id %as', task_id
             print '%.2f%% complete (down: %.1f kb/s up: %.1f kB/s peers: %d) %s' % \
                     (s.progress * 100, s.download_rate / 1000, s.upload_rate / 1000, \
                     s.num_peers, s.state)
@@ -91,9 +94,17 @@ def download_bt(file_path):
             time.sleep(1)
 
 
+def pool_download(bt_path):
+    task_id = uuid.uuid4()
+    movie_path = default_movie_path
+    future = download_pool.submit(download_bt, bt_path, movie_path, task_id)
+
+    return task_id, future
+
+
 if __name__ == "__main__":
-    magnet = "magnet:?xt=urn:btih:5d760bcf03cbcaa6c6015f652cc50193e4ecf175"
-    output_name = "../resource/torrent"
-    magnet2torrent(magnet=magnet, output_name=output_name)
-    # bt_name = "./test.torrent"
-    # download_bt(bt_name)
+    magnet = "magnet:?xt=urn:btih:6823ead20e3b484ccdedff430d5ca839060e9fc5"
+    torrent = magnet2torrent(magnet=magnet)
+    task_id, future = pool_download(torrent)
+    print task_id, future.done()
+
