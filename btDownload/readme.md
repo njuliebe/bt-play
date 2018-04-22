@@ -4,6 +4,8 @@ requests
 
 sqlalchemy
 flask_sqlalchemy
+Flask-Cache
+mysql-python
 
 libtorrent
 mac 安装：

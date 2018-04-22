@@ -22,11 +22,13 @@ def search_movie(movie_name):
         href = article.h2.a['href']
         name = article.h2.a.contents[0]
         href = bt_galaxy + href[1:]
+        magnet = get_magnet(href)
 
         item = {
             'name' : name,
             "size" : size,
-            "href" : href
+            "href" : href,
+            "magnet" : magnet
         }
         movie_items.append(item)
 
