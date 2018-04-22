@@ -2,6 +2,9 @@
 BeautifulSoup
 requests
 
+sqlalchemy
+flask_sqlalchemy
+
 libtorrent
 mac 安装：
 
